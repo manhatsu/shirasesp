@@ -9,10 +9,28 @@
 
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Timer};
-use esp_hal::clock::CpuClock;
-use esp_hal::timer::timg::TimerGroup;
+use embassy_time::{Delay, Duration, Timer};
+use embedded_hal_bus::spi::ExclusiveDevice;
+use esp_hal::{
+    clock::CpuClock,
+    gpio::{Level, Output, OutputConfig},
+    spi::{
+        Mode,
+        master::{Config as SpiConfig, Spi},
+    },
+    time::Rate,
+    timer::timg::TimerGroup,
+};
+use mipidsi::{
+    Builder,
+    interface::SpiInterface,
+    models::ST7789,
+    options::{ColorInversion, ColorOrder},
+};
+use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
+
+use shirasesp::display::{MyDisplay, display_task};
 
 extern crate alloc;
 
@@ -38,13 +56,45 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Embassy initialized!");
 
+    let spi = Spi::new(
+        peripherals.SPI2,
+        SpiConfig::default()
+            .with_frequency(Rate::from_mhz(2))
+            .with_mode(Mode::_0),
+    )
+    .unwrap()
+    .with_sck(peripherals.GPIO13)
+    .with_mosi(peripherals.GPIO15);
+
+    let _back_light = Output::new(peripherals.GPIO27, Level::High, OutputConfig::default());
+    let dc = Output::new(peripherals.GPIO14, Level::Low, OutputConfig::default());
+    let cs = Output::new(peripherals.GPIO5, Level::High, OutputConfig::default());
+    let rst = Output::new(peripherals.GPIO12, Level::High, OutputConfig::default());
+
+    let spi_device = ExclusiveDevice::new(spi, cs, Delay).unwrap();
+
+    static SPI_BUF: StaticCell<[u8; 512]> = StaticCell::new();
+    let spi_buffer = SPI_BUF.init([0u8; 512]);
+    let di = SpiInterface::new(spi_device, dc, spi_buffer);
+
+    static DISPLAY: StaticCell<MyDisplay> = StaticCell::new();
+    let display = DISPLAY.init(
+        Builder::new(ST7789, di)
+            .reset_pin(rst)
+            .display_size(135, 240)
+            .display_offset(52, 40)
+            .color_order(ColorOrder::Rgb)
+            .invert_colors(ColorInversion::Inverted)
+            .init(&mut Delay)
+            .unwrap(),
+    );
+
+    spawner.spawn(display_task(display)).unwrap();
+
     let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
     let (mut _wifi_controller, _interfaces) =
         esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
             .expect("Failed to initialize Wi-Fi controller");
-
-    // TODO: Spawn some tasks
-    let _ = spawner;
 
     loop {
         info!("Hello world!");

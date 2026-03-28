@@ -29,6 +29,7 @@ embassy-net = { version = "0.7.1", features = [
   "tcp",
   "udp",
 ] }
+embedded-graphics = { version = "0.8.2" }
 embedded-io = { version = "0.7.1", features = ["defmt"] }
 embedded-io-async = { version = "0.7.0", features = ["defmt"] }
 esp-alloc = { version = "0.9.0", features = ["defmt"] }
@@ -63,7 +64,9 @@ smoltcp = { version = "0.12.0", default-features = false, features = [
   "socket-udp",
 ] }
 
-critical-section = "1.2.0"
+critical-section    = "1.2.0"
+embedded-hal-bus    = "0.2.0"
+mipidsi             = "0.10.0"
 static_cell      = "2.1.1"
 
 
