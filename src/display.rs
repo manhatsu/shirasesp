@@ -7,13 +7,13 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 use embedded_hal_bus::spi::ExclusiveDevice;
-use esp_hal::{Blocking, gpio::Output, spi::master::Spi};
+use esp_hal::{Async, gpio::Output, spi::master::SpiDmaBus};
 use mipidsi::{interface::SpiInterface, models::ST7789};
 
 pub type MyDisplay = mipidsi::Display<
     SpiInterface<
         'static,
-        ExclusiveDevice<Spi<'static, Blocking>, Output<'static>, Delay>,
+        ExclusiveDevice<SpiDmaBus<'static, Async>, Output<'static>, Delay>,
         Output<'static>,
     >,
     ST7789,
@@ -36,7 +36,6 @@ pub async fn display_task(display: &'static mut MyDisplay) -> ! {
     }
 }
 
-#[allow(dead_code)]
 fn display_text<D>(display: &mut D, message: &str, color: Rgb565) -> Result<(), D::Error>
 where
     D: DrawTarget<Color = Rgb565>,

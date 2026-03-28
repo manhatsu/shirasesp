@@ -12,7 +12,9 @@ use embassy_executor::Spawner;
 use embassy_time::{Delay, Duration, Timer};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::{
+    Async,
     clock::CpuClock,
+    dma::{DmaRxBuf, DmaTxBuf},
     gpio::{Level, Output, OutputConfig},
     spi::{
         Mode,
@@ -56,7 +58,12 @@ async fn main(spawner: Spawner) -> ! {
 
     info!("Embassy initialized!");
 
-    let spi = Spi::new(
+    let dma_channel = peripherals.DMA_SPI2;
+    let (rx_buffer, rx_descriptors, tx_buffer, tx_descriptors) = esp_hal::dma_buffers!(512);
+    let dma_rx_buf = DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
+    let dma_tx_buf = DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
+
+    let spi_bus = Spi::new(
         peripherals.SPI2,
         SpiConfig::default()
             .with_frequency(Rate::from_mhz(2))
@@ -64,14 +71,18 @@ async fn main(spawner: Spawner) -> ! {
     )
     .unwrap()
     .with_sck(peripherals.GPIO13)
-    .with_mosi(peripherals.GPIO15);
+    .with_mosi(peripherals.GPIO15)
+    .with_dma(dma_channel)
+    .with_buffers(dma_rx_buf, dma_tx_buf)
+    .into_async();
 
     let _back_light = Output::new(peripherals.GPIO27, Level::High, OutputConfig::default());
     let dc = Output::new(peripherals.GPIO14, Level::Low, OutputConfig::default());
     let cs = Output::new(peripherals.GPIO5, Level::High, OutputConfig::default());
     let rst = Output::new(peripherals.GPIO12, Level::High, OutputConfig::default());
 
-    let spi_device = ExclusiveDevice::new(spi, cs, Delay).unwrap();
+    let spi_device: ExclusiveDevice<esp_hal::spi::master::SpiDmaBus<'_, Async>, Output<'_>, Delay> =
+        ExclusiveDevice::new(spi_bus, cs, Delay).unwrap();
 
     static SPI_BUF: StaticCell<[u8; 512]> = StaticCell::new();
     let spi_buffer = SPI_BUF.init([0u8; 512]);
