@@ -16,6 +16,7 @@ use esp_hal::{
     clock::CpuClock,
     dma::{DmaRxBuf, DmaTxBuf},
     gpio::{Level, Output, OutputConfig},
+    rng::Rng,
     spi::{
         Mode,
         master::{Config as SpiConfig, Spi},
@@ -32,7 +33,10 @@ use mipidsi::{
 use static_cell::StaticCell;
 use {esp_backtrace as _, esp_println as _};
 
-use shirasesp::display::{MyDisplay, display_task};
+use shirasesp::{
+    display::{MyDisplay, display_task},
+    wifi::{self, setup_wifi},
+};
 
 extern crate alloc;
 
@@ -102,10 +106,10 @@ async fn main(spawner: Spawner) -> ! {
 
     spawner.spawn(display_task(display)).unwrap();
 
-    let radio_init = esp_radio::init().expect("Failed to initialize Wi-Fi/BLE controller");
-    let (mut _wifi_controller, _interfaces) =
-        esp_radio::wifi::new(&radio_init, peripherals.WIFI, Default::default())
-            .expect("Failed to initialize Wi-Fi controller");
+    let rng = Rng::new();
+    let (controller, stack, runner) = setup_wifi(peripherals.WIFI, rng);
+
+    wifi::spawn_tasks(&spawner, controller, stack, runner).await;
 
     loop {
         info!("Hello world!");
