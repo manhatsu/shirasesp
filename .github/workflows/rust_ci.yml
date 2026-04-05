@@ -36,6 +36,8 @@ jobs:
           default: true
           buildtargets: esp32
           ldproxy: false
+      - name: Create dummy wifi config
+        run: printf 'SSID=dummy\nPASSWORD=dummy\n' > .wifi.config
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
       - name: Run command
