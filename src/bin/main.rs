@@ -35,6 +35,7 @@ use {esp_backtrace as _, esp_println as _};
 
 use shirasesp::{
     display::{MyDisplay, display_task},
+    mqtt::{self},
     wifi::{self, setup_wifi},
 };
 
@@ -109,7 +110,8 @@ async fn main(spawner: Spawner) -> ! {
     let rng = Rng::new();
     let (controller, stack, runner) = setup_wifi(peripherals.WIFI, rng);
 
-    wifi::spawn_tasks(&spawner, controller, stack, runner).await;
+    wifi::spawn_tasks(&spawner, controller, runner).await;
+    mqtt::spawn_tasks(&spawner, stack).await;
 
     loop {
         info!("Hello world!");
