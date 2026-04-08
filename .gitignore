@@ -23,3 +23,5 @@ target/
 
 # config files
 .wifi.config
+
+*.png

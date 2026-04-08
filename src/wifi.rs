@@ -76,19 +76,6 @@ async fn connection_task(mut controller: WifiController<'static>) {
 }
 
 #[embassy_executor::task]
-async fn network_monitor_task(stack: Stack<'static>) {
-    // keep the network stack alive to check if DHCPv4 is working
-    loop {
-        if stack.is_link_up()
-            && let Some(config) = stack.config_v4()
-        {
-            defmt::info!("Network is up with IP: {}", config.address);
-        }
-        Timer::after_millis(5000).await;
-    }
-}
-
-#[embassy_executor::task]
 async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
     runner.run().await
 }
@@ -96,11 +83,9 @@ async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
 pub async fn spawn_tasks(
     spawner: &Spawner,
     controller: WifiController<'static>,
-    stack: Stack<'static>,
     runner: Runner<'static, WifiDevice<'static>>,
 ) {
     spawner.spawn(connection_task(controller)).unwrap();
-    spawner.spawn(network_monitor_task(stack)).unwrap();
     spawner.spawn(net_task(runner)).unwrap();
 }
 
